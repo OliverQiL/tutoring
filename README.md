@@ -31,7 +31,7 @@ My full-stack tuition management platform connecting **Student Data, Educational
 
    - ER Diagram
 
-   - SQL Configuration Script
+   - SQL Configuration Script ([`sql/create_tables.sql`](/sql/create_tables.sql), PostgreSQL 15+)
 
    - Locally hosted
 
@@ -126,12 +126,12 @@ The platform should allow me to track tuition revenue, outstanding payments, exp
 | `resource_id` | BIGINT | Primary Key (PK), auto-generated |
 | `subject_id` | BIGINT | FK → subjects.subject_id, NOT NULL |
 | `title` | VARCHAR(255) | NOT NULL |
-| `resource_type` | VARCHAR(30) | Exam / Worksheet / Exercise |
+| `resource_type` | VARCHAR(30) | `exam` / `worksheet` / `exercise`; optional |
 | `publication_year` | INTEGER | Optional |
 | `file_path` | TEXT | NOT NULL |
-| `file_type` | VARCHAR(20) | PDF / PNG / JPEG |
-| `status` | VARCHAR(30) | Uploaded / Processing / Review Required / Completed / Failed |
-| `uploaded_at` | TIMESTAMPTZ | DEFAULT NOW() |
+| `file_type` | VARCHAR(20) | `pdf` / `png` / `jpeg`; optional |
+| `status` | VARCHAR(30) | NOT NULL, DEFAULT 'uploaded'; `uploaded` / `processing` / `review_required` / `completed` / `failed` |
+| `uploaded_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() |
 
 **Primary Key:** `resource_id`
 
@@ -141,22 +141,22 @@ The platform should allow me to track tuition revenue, outstanding payments, exp
 | Attribute | Data Type | Constraints / Notes |
 |---|---|---|
 | `question_id` | BIGINT | PK, auto-generated |
-| `resource_id` | BIGINT | FK → resources.resource_id |
+| `resource_id` | BIGINT | FK → resources.resource_id, NOT NULL |
 | `format_id` | BIGINT | FK → question_formats.format_id, optional |
-| `question_number` | VARCHAR(30) | E.g., 1, 2(a), 5(b)(ii) |
-| `section` | VARCHAR(20) | E.g., A, B, C |
+| `question_number` | VARCHAR(30) | NOT NULL; e.g., 1, 2(a), 5(b)(ii) |
+| `section` | VARCHAR(20) | Optional; e.g., A, B, C |
 | `question_text` | TEXT | Optional during extraction |
-| `marks` | NUMERIC(5,2) | CHECK (marks >= 0) |
-| `difficulty` | VARCHAR(20) | Easy / Medium / Hard |
-| `page_number` | INTEGER | CHECK (page_number > 0) |
+| `marks` | NUMERIC(5,2) | Optional, CHECK (marks >= 0) |
+| `difficulty` | VARCHAR(20) | `easy` / `medium` / `hard`; optional |
+| `page_number` | INTEGER | Optional, CHECK (page_number > 0) |
 | `image_path` | TEXT | Optional |
-| `classification_status` | VARCHAR(30) | Unclassified / Review Required / Classified |
+| `classification_status` | VARCHAR(30) | NOT NULL, DEFAULT 'unclassified'; `unclassified` / `review_required` / `classified` |
 
 **Primary Key:** `question_id`
 
 **Foreign Key:** `resource_id` → `resources.resource_id`, `format_id` → `question_formats.format_id`
 
-**Unique Constraint:** `UNIQUE(resource_id, section, question_number)`
+**Unique Constraint:** `UNIQUE NULLS NOT DISTINCT (resource_id, section, question_number)`
 
 ### Question Formats
 | Attribute | Data Type | Constraints / Notes |
@@ -171,7 +171,7 @@ The platform should allow me to track tuition revenue, outstanding payments, exp
 | Attribute | Data Type | Constraints / Notes |
 |---|---|---|
 | `skill_id` | BIGINT | PK, auto-generated |
-| `name` | VARCHAR(150)| NOT NULL |
+| `name` | VARCHAR(150) | NOT NULL, UNIQUE |
 | `description` | TEXT | Optional |
 
 **Primary Key:** `skill_id`
@@ -183,9 +183,9 @@ The platform should allow me to track tuition revenue, outstanding payments, exp
 | `student_id` | BIGINT | FK → students.student_id, NOT NULL |
 | `title` | VARCHAR(255) | NOT NULL |
 | `assessment_date` | DATE | Optional until attempted |
-| `assessment_type` | VARCHAR(30) | Exam / Test / Homework / Practice / Diagnostic |
-| `status` | VARCHAR(20) | NOT NULL, DEFAULT 'draft'; Draft / Assigned / Submitted / Graded |
-| `source_type` | VARCHAR(30) | Full Resource / Selected Questions / Mixed Resources / Original |
+| `assessment_type` | VARCHAR(30) | `exam` / `test` / `homework` / `practice` / `diagnostic`; optional |
+| `status` | VARCHAR(20) | NOT NULL, DEFAULT 'draft'; `draft` / `assigned` / `submitted` / `graded` |
+| `source_type` | VARCHAR(30) | `full_resource` / `selected_questions` / `mixed_resources` / `original`; optional |
 | `notes` | TEXT | Optional |
 
 **Primary Key:** `assessment_id`
@@ -227,7 +227,7 @@ Each lesson belongs to one student and may cover one or more subjects. Preserve 
 | `student_id` | BIGINT | FK → students.student_id, NOT NULL |
 | `payment_date` | DATE | NOT NULL |
 | `amount` | NUMERIC(10,2) | NOT NULL, CHECK (amount > 0) |
-| `payment_method` | VARCHAR(30) | PayNow / Bank Transfer / Cash / Other; optional |
+| `payment_method` | VARCHAR(30) | `paynow` / `bank_transfer` / `cash` / `other`; optional |
 | `reference` | VARCHAR(150) | Optional transaction reference |
 | `notes` | TEXT | Optional |
 
@@ -243,7 +243,7 @@ A payment records money actually received against one student's tuition account.
 | `expense_id` | BIGINT | PK, auto-generated |
 | `lesson_id` | BIGINT | FK → lessons.lesson_id, NOT NULL |
 | `expense_date` | DATE | NOT NULL |
-| `category` | VARCHAR(50) | Transport / Materials / Other |
+| `category` | VARCHAR(50) | NOT NULL; `transport` / `materials` / `other` |
 | `description` | TEXT | Optional |
 | `amount` | NUMERIC(10,2) | NOT NULL, CHECK (amount >= 0) |
 
@@ -261,7 +261,7 @@ Each expense belongs to one lesson, and a lesson may incur multiple expenses. Ge
 |---|---|---|
 | `student_id` | BIGINT | PK, FK → students.student_id |
 | `subject_id` | BIGINT | PK, FK → subjects.subject_id |
-| `status` | VARCHAR(20) | Active / Completed / Paused |
+| `status` | VARCHAR(20) | NOT NULL, DEFAULT 'active'; `active` / `completed` / `paused` |
 
 **Composite Primary Key:** (`student_id`, `subject_id`)
 
@@ -398,9 +398,9 @@ An allocation applies some or all of a payment to a lesson's charge. Allocations
 ### Resources and Question Classification
 
 6. Every resource belongs to exactly one subject; an unprocessed resource may contain zero questions.
-7. Every question belongs to exactly one resource. Question identifiers are unique within resource and section.
+7. Every question belongs to exactly one resource and must have a question number. Question numbers are unique within resource and section (a missing section counts as one section).
 8. Question marks must be nonnegative, and page numbers, when present, must be positive.
-9. Resource status is one of Uploaded, Processing, Review Required, Completed, or Failed.
+9. Resource status is one of `uploaded`, `processing`, `review_required`, `completed`, or `failed`.
 10. Questions may be temporarily unclassified. A fully classified question must have at least one topic or chapter association.
 11. Questions may reference multiple topics and chapters, but those must belong to the question's resource's subject.
 12. Each question has zero or one primary response format, and a format can apply to many questions.
@@ -411,7 +411,7 @@ An allocation applies some or all of a payment to a lesson's charge. Allocations
 
 15. Every assessment belongs to exactly one student, and a student may have zero or more assessments.
 16. An assessment's type describes its purpose; `source_type` describes how its questions were assembled, not a strict single-resource foreign key.
-17. Assessment `status` is Draft, Assigned, Submitted, or Graded. Draft assessments may be empty; other statuses require at least one question.
+17. Assessment `status` is `draft`, `assigned`, `submitted`, or `graded`. Draft assessments may be empty; other statuses require at least one question.
 18. Assessments contain questions from one or many resources through `assessment_questions`; each included question references an existing library question.
 19. Within one assessment, each `question_id` is included at most once; its `sequence_number`, if set, must be unique and positive.
 20. Separate assessment records represent reattempts of the same question set.
@@ -450,9 +450,10 @@ An allocation applies some or all of a payment to a lesson's charge. Allocations
 - Enforce `NOT NULL` on required foreign keys and attributes; use composite primary keys for `student_subjects`, `question_topics`, `question_chapters`, `question_skills`, `lesson_subjects`, and `payment_allocations`.
 - Keep the surrogate `assessment_question_id` PK, with `UNIQUE(assessment_id, question_id)` because the current conceptual M:N model permits only one occurrence of a given question per assessment.
 - Enforce `UNIQUE(assessment_id, sequence_number)` on populated question positions.
-- Apply uniqueness to `subjects(name, academic_level, curriculum)`, `topics(subject_id, name)`, `chapters(topic_id, name)`, `question_formats(name)`, and `questions(resource_id, section, question_number)`.
-- Since `section` is optional, use `UNIQUE NULLS NOT DISTINCT` (PostgreSQL 15+) or normalize missing sections if duplicate question numbers must be prevented when section is NULL.
-- Choose stable, documented `CHECK` values for statuses and categories; PostgreSQL enum types or lookup tables are alternatives.
+- Apply uniqueness to `subjects(name, academic_level, curriculum)`, `topics(subject_id, name)`, `chapters(topic_id, name)`, `question_formats(name)`, `skills(name)`, and `questions(resource_id, section, question_number)`.
+- Since `section` is optional, the `questions` uniqueness rule uses `UNIQUE NULLS NOT DISTINCT` (PostgreSQL 15+) so duplicate question numbers are also rejected when section is NULL. `question_number` is NOT NULL so that unnumbered questions do not collide with each other.
+- Status, type, and category columns use `CHECK` constraints with lowercase snake_case values (e.g. `review_required`, `bank_transfer`), matching their defaults. Status columns are NOT NULL with a default (`resources.status = 'uploaded'`, `questions.classification_status = 'unclassified'`, `assessments.status = 'draft'`, `student_subjects.status = 'active'`). PostgreSQL enum types or lookup tables are alternatives.
+- Index foreign key columns not already covered by a primary key or unique constraint, since PostgreSQL does not create these automatically.
 
 ### Assessment Processing
 
@@ -483,7 +484,10 @@ An allocation applies some or all of a payment to a lesson's charge. Allocations
 - Allow question format, topic, chapter, and skill classification to remain incomplete during ingestion, but validate classification when records are marked complete.
 - Ensure assigned topics and chapters match the subject of the parent resource using transaction-based validation or triggers.
 - Preserve uploaded PDFs and extracted question images in storage; keep only storage paths and metadata in PostgreSQL.
-- Prefer `ON DELETE RESTRICT` / `NO ACTION` for referenced historical records, using `CASCADE` only for associations safe to discard.
+- Use `ON DELETE RESTRICT` for referenced historical records and `CASCADE` only for associations safe to discard:
+  - `CASCADE`: `student_subjects` (from student), `question_topics` / `question_chapters` / `question_skills` (from question), `assessment_questions` (from assessment), `lesson_subjects` (from lesson).
+  - `SET NULL`: `questions.format_id` when a question format is deleted.
+  - `RESTRICT`: everything else, including all financial tables (`lessons`, `payments`, `expenses`, `payment_allocations`) and questions referenced by assessments.
 - Use database transactions for uploads, assessment creation, lesson recording, payment allocation, and grading.
 - Avoid committing real minors' personal information, financial records, or storage credentials to a public repository. Use synthetic test data and restricted storage access.
 - Maintain lowercase snake_case for SQL objects and use pytest for FK, uniqueness, classification, grading, and payment-allocation edge cases.
