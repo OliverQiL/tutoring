@@ -13,13 +13,30 @@ Profiled with `scripts/profile_data.py` (all sheets read with `dtype=str`). No p
 
 `resources` / `questions` come from the PDF pipeline.
 
+## Canonical values (decided in stage 2)
+
+Applied by every loader **before** inserting or looking anything up, so values from different sheets match exactly.
+
+| Field | Rule | Stored values |
+|---|---|---|
+| curriculum | strip + lowercase | `mainstream primary`, `igcse` |
+| academic level | strip + lowercase, abbreviations kept | `p4`, `p6`, `s2` |
+| subject name | strip + lowercase | `mathematics`, `science` |
+| topic / chapter name | to be decided in stage 3 | |
+
+Known variants (alias map) are applied after strip + lowercase:
+
+| Variant | → Canonical |
+|---|---|
+| `maintream primary` | `mainstream primary` |
+
 ## Column mappings
 
 ### Subjects Info (one row per chapter)
 | Column | → | Notes |
 |---|---|---|
-| `curriculum` | `subjects.curriculum` | 2 values: `mainstream primary`, `IGCSE` |
-| `academic level` | `subjects.academic_level` | 3 values: `P4`, `P6`, `S2` |
+| `curriculum` | `subjects.curriculum` | 2 values: `mainstream primary`, `IGCSE` → stored lowercase |
+| `academic level` | `subjects.academic_level` | 3 values: `P4`, `P6`, `S2` → stored lowercase |
 | `subjects` | `subjects.name` | 2 values: `mathematics`, `science` |
 | `topics` | `topics.name` | 29 distinct, all lowercase |
 | `chapters` | `chapters.name` | 143 distinct, mixed / title case |
@@ -73,7 +90,7 @@ The sheet gives 4 distinct subjects: (mainstream primary, P4, science), (mainstr
 
 | # | Sheet | Problem | Fix (stage 4) |
 |---|---|---|---|
-| 1 | Students | `curriculum` typo `maintream primary` (Subjects Info has `mainstream primary`). As a result, **3 of the 4 enrolments don't match any subject.** | Map known variants to a canonical value |
+| 1 | Students | `curriculum` typo `maintream primary` (Subjects Info has `mainstream primary`). As a result, **3 of the 4 enrolments don't match any subject.** Alias map: `maintream primary` → `mainstream primary` (see Canonical values) |
 | 2 | Students | Trailing whitespace on one `last name` and one `current school` | `strip()` every text cell |
 | 3 | Lessons | `student` matches full names exactly in only 4/10 rows, but in 10/10 after strip + lowercase (caused by problem 2) | Match on a normalised full name |
 | 4 | Subjects Info | 3 fully blank rows (used as separators). They are also the cause of the 2 duplicate rows. | Drop all-blank rows before validating |
@@ -82,7 +99,7 @@ The sheet gives 4 distinct subjects: (mainstream primary, P4, science), (mainstr
 | 7 | Lessons | `duration (in hours)` is a decimal number of hours; the schema stores whole minutes | Convert with `Decimal`, check the result is a whole number of minutes |
 | 8 | Lessons | pandas guesses `rate` / `fee` as int and duration as float | Read as `str`, convert to `Decimal` |
 | 9 | Payments | Header `amount ` has a trailing space | Strip column names on read |
-| 10 | All | Category values are inconsistent in style: `IGCSE` uppercase vs `mainstream primary` lowercase; levels are abbreviations (`P4`, `S2`) | Choose canonical forms for curriculum and level, and document them |
+| 10 | All | Category values are inconsistent in style: `IGCSE` uppercase vs `mainstream primary` lowercase; levels are abbreviations (`P4`, `S2`) **Decided:** strip + lowercase, abbreviations kept (see Canonical values) |
 | 11 | Lessons | `expense description` value `transportation` isn't an allowed category (`transport` / `materials` / `other`) | Map description text to a category; unknown text → `other`, keep the text in `description` |
 | 12 | Lessons | pandas guesses `expenses` as float64 because blank cells become NaN | Read as `str`, convert non-blank values to `Decimal`, skip blanks |
 
@@ -94,3 +111,7 @@ The sheet gives 4 distinct subjects: (mainstream primary, P4, science), (mainstr
 - Expense amount and description are always filled together: no amount without a description, or the reverse.
 - Lesson dates are in order. Two lessons share one date, which is fine (different lessons).
 - After the curriculum typo is fixed, every student's (curriculum, level, subject) exists in Subjects Info.
+
+## Design choices (for problems)
+problem 10 - standardize all lower case, levels use abbreviations (p4, s2)
+

@@ -526,4 +526,38 @@ Created excel file (which can be exported as a raw csv file) containing student,
 
 **profile_data.py**
 1. installed both `openpyxl` and `python-calamine`. in pandas official documentation, calamine is the new default (build on Rust calamine library which is faster) so we will use calamine
-2. 
+2. using an ExcelFile Object to iterate through the pages and print dataframes
+3. standard df methods to inspect data
+4. created notes.md file `data/notes.md` to describe data
+
+**load subjects**
+
+*subjects table schema can be found in `sql/create_tables.sql`*
+
+1. now we getting somewhere - create new package (folder) loaders to hold our excel -> db
+2. starting with subjects_table, we load in the subjects_data from the "Subjects Info" sheet
+3. cleaning the data
+   1. drop redundant columns "topics" and "chapters"
+   2. strip whitespaces from every value, then lowercase (iterate over remaining columns, cast as str then strip() and lower() entries)
+   3. drop duplicate rows (left with 4 unique combinations of curriculum, subject, and academic level)
+   4. psycopg accepts a list of tuples so we need to save the df as tuples
+4. now we use the db module created earlier to connect to the database
+   1. connect_to_db() returns a connection object connected to our DB
+   2. cursor() returns a cursor object to execute commands
+   3. write out the query with placeholders (%s)
+   4. `ON CONFLICT (curriculum, academic_level, name) DO NOTHING;` is technically redundant given that we had already defined a constraint in the table schema. we include primarily to explicitly handle the error (`DO NOTHING`). without, process craches. with `DO NOTHING`, silently skips 
+   5. executemany() executes the same query over multiple tuples (our list of tuples)
+   6. finally commit() changes - good practice even though exiting the `with` block does this automatically and closes the connection
+5. result on first run - 4 rows added to database
+6. result on second run - no changes to database. still 4 rows
+7. verified in pgAdmin (SELECT * FROM subjects)
+
+1. now converting subjects_table.py into a module with functions and a main block
+   1. `def load_subjects_table(conn, data_file_path=DATA_FILE_PATH, sheet_name=SHEET_NAME)`
+   2. the function takes in a connection object, and only creates the cursor to execute queries. it does not open or close any connections (important design choice - only the function that creates the connection object should close it)
+   3. in main, we create the connection object, pass it into the function, we exit the function, and exit the main to close the connection. connection is not closed within the function itself
+
+
+`
+
+
