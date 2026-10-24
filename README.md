@@ -491,3 +491,36 @@ An allocation applies some or all of a payment to a lesson's charge. Allocations
 - Use database transactions for uploads, assessment creation, lesson recording, payment allocation, and grading.
 - Avoid committing real minors' personal information, financial records, or storage credentials to a public repository. Use synthetic test data and restricted storage access.
 - Maintain lowercase snake_case for SQL objects and use pytest for FK, uniqueness, classification, grading, and payment-allocation edge cases.
+
+**Local DB setup**
+
+Locally running PostgreSQL 18 - created "tutoring" DB. Ran SQL setup script. No errors. Ready for python ingestion and processing pipeline.
+
+**Data Preparation**
+
+Created excel file (which can be exported as a raw csv file) containing student, subject, lesson, payment data (4 separate tabs). PDF documents are sourced from sgexams.com. 
+
+**Setup python venv**
+
+1. run `python3 -m venv .venv` in project root - python native virtual environment setup
+2. run `source .venv/bin/activate` - venv bash setup file. can see (.venv) in terminal to indicate we are in the venv
+3. .venv file should be included in .gitignore because its tailored to specific OS. also easily recreated. whats more important to share are the dependencies
+4. install dependencies - ran `pip install "psycopg[binary]", pandas, python-dotenv, pytest`
+5. create requirements.txt - run `pip freeze > requirements.txt` to create text file containing the installed dependencies and versions. run `pip install -r requirements.txt` in future to install dependencies from requirements.txt file
+6. create .env file, add to gitignore, add DATABADE_URL. also create .env.example file with placeholders. this is included in git
+
+**python pipeline**
+1. now we create pipeline folder where the python ETL will live. in it we create a `config.py` file to setup our environment. import `os` module which handles OS level access. import `python-dotenv` particularly the `load_dotenv()` function to inject the .env variables into system. use `os.getenv()` to access the variables.
+2. also add in error handling - if .env file is not setup properly with the url, we throw an error. os.getenv() defaults to None which we want to catch loudly
+3.  refactor getting the env variables as a function such that the config module can be imported and call its functions
+    - important design distinctions: package vs module and how different modules interact with each other
+    - a module is just a python file (ends with .py)
+    - a package is a collection of different modules (a folder containing different python files)
+    - python recognises a folder as a package when there is a `__init__.py` file in the folder
+    - when we import a module into another module, syntax is `from {package-name} import {module-name}`
+    - also when we run a module, use the `-m` command flag instead of a path to the module (`python3 pipeline/db.py` vs `python3 -m db.py`). this way you can run the module from anywhere in the project
+    - the distinction of a module is also why we have `if __name__ == __main__`. this checks whether the current module being run is ran as an imported module or the main module
+    - so in this example, `config.py` is the module we want to import into `db.py`. they both are in the same package `pipeline`
+    - when we run `db.py`, it runs the `if __name__ == __main__` block
+4. Reference for psycopg3: [psycopg3_documentation](https://www.psycopg.org/psycopg3/docs/index.html)
+

@@ -1,1 +1,6 @@
 markdown-cheat-sheet.md
+.venv
+.env
+data/raw/
+.vscode/
+__pycache__/
