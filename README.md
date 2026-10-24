@@ -509,7 +509,7 @@ Created excel file (which can be exported as a raw csv file) containing student,
 5. create requirements.txt - run `pip freeze > requirements.txt` to create text file containing the installed dependencies and versions. run `pip install -r requirements.txt` in future to install dependencies from requirements.txt file
 6. create .env file, add to gitignore, add DATABADE_URL. also create .env.example file with placeholders. this is included in git
 
-**python pipeline**
+**python pipeline setup**
 1. now we create pipeline folder where the python ETL will live. in it we create a `config.py` file to setup our environment. import `os` module which handles OS level access. import `python-dotenv` particularly the `load_dotenv()` function to inject the .env variables into system. use `os.getenv()` to access the variables.
 2. also add in error handling - if .env file is not setup properly with the url, we throw an error. os.getenv() defaults to None which we want to catch loudly
 3.  refactor getting the env variables as a function such that the config module can be imported and call its functions
@@ -524,3 +524,6 @@ Created excel file (which can be exported as a raw csv file) containing student,
     - when we run `db.py`, it runs the `if __name__ == __main__` block
 4. Reference for psycopg3: [psycopg3_documentation](https://www.psycopg.org/psycopg3/docs/index.html)
 
+**profile_data.py**
+1. installed both `openpyxl` and `python-calamine`. in pandas official documentation, calamine is the new default (build on Rust calamine library which is faster) so we will use calamine
+2. 
