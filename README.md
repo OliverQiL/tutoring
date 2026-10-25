@@ -556,8 +556,12 @@ Created excel file (which can be exported as a raw csv file) containing student,
    1. `def load_subjects_table(conn, data_file_path=DATA_FILE_PATH, sheet_name=SHEET_NAME)`
    2. the function takes in a connection object, and only creates the cursor to execute queries. it does not open or close any connections (important design choice - only the function that creates the connection object should close it)
    3. in main, we create the connection object, pass it into the function, we exit the function, and exit the main to close the connection. connection is not closed within the function itself
+   4. we also return the number of rows inserted and rows skipped by running a `SELECT COUNT(*)` query. this is important for later stages
+   5. when we are cleaning the df and dropping columns, better to name the columns we want to keep explicitly to also enforce the order of our remaining columns. this is important for the insert query which inserts by order. so dont use `drop()`
+   6. small note that `inplace=True` is deprecating. it doesnt actually save memory, and its better to always return a new df to be able to chain steps together. so by convention, dont use and return a new df
 
 
-`
+
+
 
 
