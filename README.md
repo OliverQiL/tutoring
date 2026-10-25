@@ -560,8 +560,31 @@ Created excel file (which can be exported as a raw csv file) containing student,
    5. when we are cleaning the df and dropping columns, better to name the columns we want to keep explicitly to also enforce the order of our remaining columns. this is important for the insert query which inserts by order. so dont use `drop()`
    6. small note that `inplace=True` is deprecating. it doesnt actually save memory, and its better to always return a new df to be able to chain steps together. so by convention, dont use and return a new df
 
+**load topics and chapters**
 
+*topics and chapters table schema can be found in `sql/create_tables.sql`*
 
-
-
+1. moved the cleaning steps into a shared module `pipeline/cleaning.py` with a `clean_data(df)` function. strips, lowercases, drops fully NaN rows and drops duplicates. all 3 loaders (subjects, topics, chapters) now call it
+   1. important because the topics loader rebuilds each subject's key (curriculum, academic level, subject name) to look up its `subject_id`. if the cleaning differs even slightly between loaders, the lookups silently fail to match
+   2. `clean_data()` returns a cleaned copy and does not modify the df passed in (important design choice - a function shouldnt change data it doesnt own, same idea as not closing a connection it didnt open). first version assigned columns directly on the input df, which changed the caller's df without them knowing
+2. kept one loader per table (`subjects_table.py`, `topics_table.py`, `chapters_table.py`). each loader reads the "Subjects Info" sheet again and keeps only the columns it needs. file is small so re-reading costs nothing, and each loader stays self-contained
+3. topics need a `subject_id`, but the sheet only has the subject's name, level and curriculum (natural key). so we build a lookup dictionary from the DB
+   1. `SELECT subject_id, curriculum, academic_level, name FROM subjects` then convert the result into a dict `{(curriculum, academic_level, name): subject_id}` using a dict comprehension
+   2. dict keys can be tuples (immutable) but not lists (mutable)
+   3. why not use `INSERT ... RETURNING subject_id`? because with `ON CONFLICT DO NOTHING`, `RETURNING` returns nothing for rows that already exist. on a second run we would get no ids back. a `SELECT` always returns every row
+   4. for each cleaned row, use `dict.get(key)` to find the parent id. `dict.get()` returns None if the key isnt found, while `dict[key]` raises a KeyError
+4. missing parent policy - skip and report. rows with no matching parent are collected into a skipped list and returned so main can print them. the rest still get loaded
+5. chapters are the same pattern one level down. a chapter's parent is a topic, and a topic is only unique within its subject, so the key needs both
+   1. `SELECT ... FROM subjects s JOIN topics t ON s.subject_id = t.subject_id` to get the subject fields together with each topic
+   2. builds a 4 part key `{(curriculum, academic_level, subject_name, topic_name): topic_id}`
+   3. insert `(topic_id, name)` with `ON CONFLICT (topic_id, name) DO NOTHING`
+6. both loaders return rows inserted, rows skipped and the list of skipped rows
+7. canonical values decision - topic and chapter names are also stripped + lowercased (same as subjects). eg `potential energy (gpe, epe, cpe)`. documented in `data/notes.md`
+8. typo policy - typos are fixed in the source excel file, not in code (no alias map). eg fixed `maintream primary` -> `mainstream primary` in the Students sheet. loaders skip and report anything that doesnt match
+9. result on first run - 29 topics and 143 chapters added, matching the counts calculated from the sheet in pandas. every topic has at least one chapter
+10. result on second run - no changes to database
+11. left for later
+    1. skipped count currently mixes "already in DB" and "no parent found" into one number
+    2. partially blank rows (eg a blank topic cell) are not checked yet, only fully blank rows are dropped
+    3. combined `load_curriculum.py` module to run subjects -> topics -> chapters in one transaction
 

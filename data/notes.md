@@ -22,13 +22,9 @@ Applied by every loader **before** inserting or looking anything up, so values f
 | curriculum | strip + lowercase | `mainstream primary`, `igcse` |
 | academic level | strip + lowercase, abbreviations kept | `p4`, `p6`, `s2` |
 | subject name | strip + lowercase | `mathematics`, `science` |
-| topic / chapter name | to be decided in stage 3 | |
+| topic / chapter name | strip + lowercase (decided in stage 3) | e.g. `matter`, `potential energy (gpe, epe, cpe)` |
 
-Known variants (alias map) are applied after strip + lowercase:
-
-| Variant | → Canonical |
-|---|---|
-| `maintream primary` | `mainstream primary` |
+**Typos are fixed in the source workbook, not in code.** There is no alias map: the Excel file is kept correct, and the loaders assume it is. If a value doesn't match (e.g. a student's curriculum has no matching subject), the loaders skip and report the row, and the fix is made in the workbook.
 
 ## Column mappings
 
@@ -90,16 +86,16 @@ The sheet gives 4 distinct subjects: (mainstream primary, P4, science), (mainstr
 
 | # | Sheet | Problem | Fix (stage 4) |
 |---|---|---|---|
-| 1 | Students | `curriculum` typo `maintream primary` (Subjects Info has `mainstream primary`). As a result, **3 of the 4 enrolments don't match any subject.** Alias map: `maintream primary` → `mainstream primary` (see Canonical values) |
+| 1 | Students | `curriculum` typo `maintream primary` (Subjects Info has `mainstream primary`). As a result, **3 of the 4 enrolments don't match any subject.** | **Fixed in the source workbook** (stage 3) |
 | 2 | Students | Trailing whitespace on one `last name` and one `current school` | `strip()` every text cell |
 | 3 | Lessons | `student` matches full names exactly in only 4/10 rows, but in 10/10 after strip + lowercase (caused by problem 2) | Match on a normalised full name |
 | 4 | Subjects Info | 3 fully blank rows (used as separators). They are also the cause of the 2 duplicate rows. | Drop all-blank rows before validating |
 | 5 | Subjects Info | Trailing whitespace in topics `light`, `sets and venn diagrams` and chapter `visualising nets` | `strip()`. Otherwise `UNIQUE(subject_id, name)` treats `light` and `light ` as different topics |
-| 6 | Subjects Info | Topics are lowercase, chapters are title/mixed case | Decide on a display convention, or leave as entered. Unique checks should not depend on case |
+| 6 | Subjects Info | Topics are lowercase, chapters are title/mixed case | **Decided:** strip + lowercase both (see Canonical values) |
 | 7 | Lessons | `duration (in hours)` is a decimal number of hours; the schema stores whole minutes | Convert with `Decimal`, check the result is a whole number of minutes |
 | 8 | Lessons | pandas guesses `rate` / `fee` as int and duration as float | Read as `str`, convert to `Decimal` |
 | 9 | Payments | Header `amount ` has a trailing space | Strip column names on read |
-| 10 | All | Category values are inconsistent in style: `IGCSE` uppercase vs `mainstream primary` lowercase; levels are abbreviations (`P4`, `S2`) **Decided:** strip + lowercase, abbreviations kept (see Canonical values) |
+| 10 | All | Category values are inconsistent in style: `IGCSE` uppercase vs `mainstream primary` lowercase; levels are abbreviations (`P4`, `S2`) | **Decided:** strip + lowercase, abbreviations kept (see Canonical values) |
 | 11 | Lessons | `expense description` value `transportation` isn't an allowed category (`transport` / `materials` / `other`) | Map description text to a category; unknown text → `other`, keep the text in `description` |
 | 12 | Lessons | pandas guesses `expenses` as float64 because blank cells become NaN | Read as `str`, convert non-blank values to `Decimal`, skip blanks |
 

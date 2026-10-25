@@ -1,12 +1,13 @@
 import pandas as pd
 from pipeline import db
+from pipeline import cleaning
 
 DATA_FILE_PATH = "data/raw/tutoring_data.xlsx"
 SHEET_NAME = "Subjects Info"
 
 def load_subjects_table(conn, data_file_path=DATA_FILE_PATH, sheet_name=SHEET_NAME):
     # read the subjects data from the Excel file
-    subjects_data = pd.read_excel(data_file_path, sheet_name=sheet_name, dtype=str)
+    subjects_data = pd.read_excel(data_file_path, sheet_name=sheet_name, dtype=str, engine="calamine")
 
     # cleaning subjects_data
     # drop columns 'topics' and 'chapters'
@@ -14,16 +15,9 @@ def load_subjects_table(conn, data_file_path=DATA_FILE_PATH, sheet_name=SHEET_NA
     # this way, we can ensure that the columns are in the correct order for insertion into the database
     subjects_data = subjects_data[["curriculum", "academic level", "subjects"]]
 
-    # drop rows where all elements are NaN
-    subjects_data = subjects_data.dropna(how="all") 
-
-    # strip whitespace from every value of every column, then lowercase everything
-    for column in subjects_data.columns:
-        subjects_data[column] = subjects_data[column].str.strip()
-        subjects_data[column] = subjects_data[column].str.lower()
-
-    # drop duplicates
-    subjects_data = subjects_data.drop_duplicates()
+    # clean the data using the clean_data function from pipeline/cleaning.py
+    # strips, lowercases, drops NaN rows, and drops duplicates
+    subjects_data = cleaning.clean_data(subjects_data)
 
     # convert dataframe rows into a list of tuples
     # order is ensured by the previous step where we specified the columns to keep and their order
