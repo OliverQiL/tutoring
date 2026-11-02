@@ -21,8 +21,9 @@ def load_student_subjects_table(conn, data_file_path=DATA_FILE_PATH, sheet_name=
     students_data = pd.read_excel(data_file_path, sheet_name=sheet_name, dtype=str, engine="calamine")
 
     # cleaning students_data
-    # only need first name, last name, and subjects studying
-    students_data = students_data[["first name", "last name", "subjects studying"]]
+    # need first name, last name, and subjects studying, plus curriculum and academic level
+    # (subject names repeat across levels, so the student's curriculum and level are part of the subject key)
+    students_data = students_data[["first name", "last name", "curriculum", "academic level", "subjects studying"]]
 
     # clean the data using the clean_data function from pipeline/cleaning.py
     # strips, lowercases, drops NaN rows, and drops duplicates
@@ -35,13 +36,13 @@ def load_student_subjects_table(conn, data_file_path=DATA_FILE_PATH, sheet_name=
     students_data["subjects_list"] = students_data["subjects studying"].apply(cleaning.split_subjects)
 
     # drop the original first name, last name, and subjects studying columns
-    students_data = students_data[["full_name", "subjects_list"]]
+    students_data = students_data[["full_name", "curriculum", "academic level", "subjects_list"]]
 
-    # convert dataframe rows into a list of tuples (full_name, subject)
+    # convert dataframe rows into a list of tuples (full_name, curriculum, academic_level, subject)
     tuple_list = []
     for _, row in students_data.iterrows():
         for subject in row["subjects_list"]:
-            tuple_list.append((row["full_name"], subject))
+            tuple_list.append((row["full_name"], row["curriculum"], row["academic level"], subject))
 
     with conn.cursor() as cur:
         # build a lookup dictionary to map the full_name to student_id
@@ -49,18 +50,19 @@ def load_student_subjects_table(conn, data_file_path=DATA_FILE_PATH, sheet_name=
         result = cur.fetchall()  # a list of tuples (student_id, full_name)
         student_lookup = {full_name: student_id for student_id, full_name in result}
 
-        # build a lookup dictionary to map the subject name to subject_id
-        cur.execute("SELECT subject_id, name FROM subjects;")
-        result = cur.fetchall()  # a list of tuples (subject_id, name)
-        subject_lookup = {name: subject_id for subject_id, name in result}
+        # build a lookup dictionary to map (curriculum, academic_level, name) to subject_id
+        # the key must match the UNIQUE constraint on subjects: name alone repeats across levels
+        cur.execute("SELECT subject_id, curriculum, academic_level, name FROM subjects;")
+        result = cur.fetchall()  # a list of tuples (subject_id, curriculum, academic_level, name)
+        subject_lookup = {(curriculum, level, name): subject_id for subject_id, curriculum, level, name in result}
 
         # now we can use these dictionaries to get the student_id and subject_id for each row in tuple_list
         student_subjects_with_ids = []
         skipped_missing_students = []
         skipped_missing_subjects = []
-        for full_name, subject in tuple_list:
+        for full_name, curriculum, level, subject in tuple_list:
             student_id = student_lookup.get(full_name)
-            subject_id = subject_lookup.get(subject)
+            subject_id = subject_lookup.get((curriculum, level, subject))
             if student_id is not None and subject_id is not None:
                 student_subjects_with_ids.append((student_id, subject_id))
             else:
@@ -68,8 +70,8 @@ def load_student_subjects_table(conn, data_file_path=DATA_FILE_PATH, sheet_name=
                     skipped_missing_students.append(full_name)
                     print(f"Warning: No student_id found for {full_name}. Skipping this row.")
                 if subject_id is None:
-                    skipped_missing_subjects.append(subject)
-                    print(f"Warning: No subject_id found for {subject}. Skipping this row.")
+                    skipped_missing_subjects.append((curriculum, level, subject))
+                    print(f"Warning: No subject_id found for {curriculum}, {level}, {subject}. Skipping this row.")
 
         # count the number of rows in the student_subjects table before inserting new data
         cur.execute("SELECT COUNT(*) FROM student_subjects;")
@@ -110,6 +112,3 @@ if __name__ == "__main__":
             print("The following subjects were skipped due to missing subject_id:")
             for subject in skipped_missing_subjects:
                 print(subject)
-
-
-            
