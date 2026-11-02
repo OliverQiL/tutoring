@@ -142,11 +142,11 @@ CREATE TABLE lessons (
     lesson_id        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     student_id       BIGINT        NOT NULL REFERENCES students (student_id) ON DELETE RESTRICT,
     lesson_date      DATE          NOT NULL,
-    duration_minutes INTEGER       NOT NULL,
+    duration_hours   NUMERIC(4,2)  NOT NULL,
     hourly_rate      NUMERIC(10,2) NOT NULL,
     lesson_fee       NUMERIC(10,2) NOT NULL,
     notes            TEXT,
-    CONSTRAINT ck_lessons_duration_minutes CHECK (duration_minutes > 0),
+    CONSTRAINT ck_lessons_duration_hours   CHECK (duration_hours > 0),
     CONSTRAINT ck_lessons_hourly_rate      CHECK (hourly_rate >= 0),
     CONSTRAINT ck_lessons_lesson_fee       CHECK (lesson_fee >= 0)
 );
@@ -172,8 +172,6 @@ CREATE TABLE expenses (
     category        VARCHAR(50)   NOT NULL,
     description     TEXT,
     amount          NUMERIC(10,2) NOT NULL,
-    CONSTRAINT ck_expenses_category
-        CHECK (category IN ('transport', 'materials', 'other')),
     CONSTRAINT ck_expenses_amount
         CHECK (amount >= 0)
 );

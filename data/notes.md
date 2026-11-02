@@ -54,11 +54,11 @@ The sheet gives 4 distinct subjects: (mainstream primary, P4, science), (mainstr
 |---|---|---|
 | `date` | `lessons.lesson_date` | Stored as Excel dates; reads as `'2026-10-06 00:00:00'` → keep date part only |
 | `student` | `lessons.student_id` | Full name; resolve via students lookup |
-| `duration (in hours)` | `lessons.duration_minutes` | Values `1`, `1.5`, `2` (hours) → × 60 |
+| `duration (in hours)` | `lessons.duration_hours` | Values `1`, `1.5`, `2`. Stored as hours (decided in stage 4) → `Decimal` |
 | `rate` | `lessons.hourly_rate` | Whole numbers → `Decimal` |
 | `fee` | `lessons.lesson_fee` | Whole numbers → `Decimal` |
 | `expenses` | `expenses.amount` | Filled on 5/10 lessons, all `30`. Blank means **no expense row**, not a 0.00 expense |
-| `expense description` | `expenses.category` (+ `expenses.description`) | Filled on exactly the same 5 lessons, all `transportation`. Map to category `transport`; keep the original text as `description` or leave it NULL |
+| `expense description` | `expenses.category` | Filled on exactly the same 5 lessons, all `transportation`. Stored as free text after strip + lowercase (decided in stage 4); `expenses.description` stays NULL |
 | (lesson `date`) | `expenses.expense_date` | No separate expense date; use the lesson date |
 | (lesson row) | `expenses.lesson_id` | The expense belongs to the lesson on the same row |
 
@@ -77,7 +77,7 @@ The sheet gives 4 distinct subjects: (mainstream primary, P4, science), (mainstr
   - The two-subject student has 3 lessons, which need a rule or manual input. Decide in stage 6.
 - **No payments yet.** The Payments sheet is empty, so stage 7 needs synthetic test rows in `data/sample/`.
 - **At most one expense per lesson.** Expenses are two columns on the Lessons sheet, so a lesson with two expenses (e.g. transport + materials) can't be entered. That's fine for now; switch to a separate Expenses sheet with a lesson reference if it comes up.
-- **No expense date or explicit category.** The date is taken from the lesson, and the category is mapped from the free-text description.
+- **No expense date.** The date is taken from the lesson. The category is the free-text description itself (no fixed list).
 - **`age` has no column in the schema.** Either drop it, or add something like `date_of_birth`, because a stored age goes stale. Avoid storing more personal data on minors than you need.
 - **No descriptions** for subjects, topics or chapters. These stay NULL.
 - **No payment method values** exist yet to check against the allowed list.
@@ -92,11 +92,11 @@ The sheet gives 4 distinct subjects: (mainstream primary, P4, science), (mainstr
 | 4 | Subjects Info | 3 fully blank rows (used as separators). They are also the cause of the 2 duplicate rows. | Drop all-blank rows before validating |
 | 5 | Subjects Info | Trailing whitespace in topics `light`, `sets and venn diagrams` and chapter `visualising nets` | `strip()`. Otherwise `UNIQUE(subject_id, name)` treats `light` and `light ` as different topics |
 | 6 | Subjects Info | Topics are lowercase, chapters are title/mixed case | **Decided:** strip + lowercase both (see Canonical values) |
-| 7 | Lessons | `duration (in hours)` is a decimal number of hours; the schema stores whole minutes | Convert with `Decimal`, check the result is a whole number of minutes |
+| 7 | Lessons | `duration (in hours)` is a decimal number of hours | **Decided:** schema stores hours (`duration_hours NUMERIC(4,2)`); convert with `Decimal`, no minutes conversion |
 | 8 | Lessons | pandas guesses `rate` / `fee` as int and duration as float | Read as `str`, convert to `Decimal` |
 | 9 | Payments | Header `amount ` has a trailing space | Strip column names on read |
 | 10 | All | Category values are inconsistent in style: `IGCSE` uppercase vs `mainstream primary` lowercase; levels are abbreviations (`P4`, `S2`) | **Decided:** strip + lowercase, abbreviations kept (see Canonical values) |
-| 11 | Lessons | `expense description` value `transportation` isn't an allowed category (`transport` / `materials` / `other`) | Map description text to a category; unknown text → `other`, keep the text in `description` |
+| 11 | Lessons | `expense description` value `transportation` isn't an allowed category (`transport` / `materials` / `other`) | **Decided:** no fixed categories. The `CHECK` was removed from `expenses.category`; values are stored as free text after strip + lowercase |
 | 12 | Lessons | pandas guesses `expenses` as float64 because blank cells become NaN | Read as `str`, convert non-blank values to `Decimal`, skip blanks |
 
 ## Checks that passed

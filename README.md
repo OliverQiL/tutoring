@@ -209,7 +209,7 @@ Repeated attempts of the same paper or question set are represented by separate 
 | `lesson_id` | BIGINT | PK, auto-generated |
 | `student_id` | BIGINT | FK → students.student_id, NOT NULL |
 | `lesson_date` | DATE | NOT NULL |
-| `duration_minutes` | INTEGER | NOT NULL, CHECK (duration_minutes > 0) |
+| `duration_hours` | NUMERIC(4,2) | NOT NULL, CHECK (duration_hours > 0); e.g. 1, 1.5, 2 |
 | `hourly_rate` | NUMERIC(10,2) | NOT NULL, CHECK (hourly_rate >= 0) |
 | `lesson_fee` | NUMERIC(10,2) | NOT NULL, CHECK (lesson_fee >= 0) |
 | `notes` | TEXT | Optional |
@@ -217,7 +217,7 @@ Repeated attempts of the same paper or question set are represented by separate 
 **Primary Key:** `lesson_id`  
 **Foreign Key:** `student_id` → `students.student_id`
 
-Each lesson belongs to one student and may cover one or more subjects. Preserve `hourly_rate` and the charged `lesson_fee` on the lesson itself so historic bills remain unchanged when prices change. Normally, `lesson_fee = ROUND(duration_minutes * hourly_rate / 60, 2)`; adjustments must be deliberate and documented.
+Each lesson belongs to one student and may cover one or more subjects. Preserve `hourly_rate` and the charged `lesson_fee` on the lesson itself so historic bills remain unchanged when prices change. Normally, `lesson_fee = ROUND(duration_hours * hourly_rate, 2)`; adjustments must be deliberate and documented. Duration is stored in hours (not minutes) because lessons are recorded and billed in hours; `NUMERIC` keeps fractional hours such as 1.5 exact.
 
 ### Payments
 
@@ -243,7 +243,7 @@ A payment records money actually received against one student's tuition account.
 | `expense_id` | BIGINT | PK, auto-generated |
 | `lesson_id` | BIGINT | FK → lessons.lesson_id, NOT NULL |
 | `expense_date` | DATE | NOT NULL |
-| `category` | VARCHAR(50) | NOT NULL; `transport` / `materials` / `other` |
+| `category` | VARCHAR(50) | NOT NULL; free text (e.g. `transportation`), stripped + lowercased |
 | `description` | TEXT | Optional |
 | `amount` | NUMERIC(10,2) | NOT NULL, CHECK (amount >= 0) |
 
@@ -452,7 +452,7 @@ An allocation applies some or all of a payment to a lesson's charge. Allocations
 - Enforce `UNIQUE(assessment_id, sequence_number)` on populated question positions.
 - Apply uniqueness to `subjects(name, academic_level, curriculum)`, `topics(subject_id, name)`, `chapters(topic_id, name)`, `question_formats(name)`, `skills(name)`, and `questions(resource_id, section, question_number)`.
 - Since `section` is optional, the `questions` uniqueness rule uses `UNIQUE NULLS NOT DISTINCT` (PostgreSQL 15+) so duplicate question numbers are also rejected when section is NULL. `question_number` is NOT NULL so that unnumbered questions do not collide with each other.
-- Status, type, and category columns use `CHECK` constraints with lowercase snake_case values (e.g. `review_required`, `bank_transfer`), matching their defaults. Status columns are NOT NULL with a default (`resources.status = 'uploaded'`, `questions.classification_status = 'unclassified'`, `assessments.status = 'draft'`, `student_subjects.status = 'active'`). PostgreSQL enum types or lookup tables are alternatives.
+- Status, type, and category columns use `CHECK` constraints with lowercase snake_case values (e.g. `review_required`, `bank_transfer`), matching their defaults. Status columns are NOT NULL with a default (`resources.status = 'uploaded'`, `questions.classification_status = 'unclassified'`, `assessments.status = 'draft'`, `student_subjects.status = 'active'`). PostgreSQL enum types or lookup tables are alternatives. Exception: `expenses.category` is deliberately free text with no `CHECK`, so new kinds of expenses can be recorded without a schema change; consistent spelling is kept by cleaning (strip + lowercase) and by keeping the source workbook correct.
 - Index foreign key columns not already covered by a primary key or unique constraint, since PostgreSQL does not create these automatically.
 
 ### Assessment Processing
@@ -469,7 +469,7 @@ An allocation applies some or all of a payment to a lesson's charge. Allocations
 
 ### Lessons, Payments, and Expenses
 
-- Store `duration_minutes`, `hourly_rate`, and the final charged `lesson_fee` for each lesson. Calculate normal charges using decimal arithmetic and a consistent two-decimal rounding policy. Preserve any deliberate adjustments.
+- Store `duration_hours`, `hourly_rate`, and the final charged `lesson_fee` for each lesson. Calculate normal charges using decimal arithmetic and a consistent two-decimal rounding policy. Preserve any deliberate adjustments.
 - Store the student's identity on both lessons and payments, allowing quick tuition-account queries. Validate that `payment_allocations` only joins matching student accounts.
 - A payment may be partially allocated or temporarily unallocated. Do not force its total allocations to equal its amount.
 - Enforce allocation sum limits and cross-table student consistency inside transactions with locking or database triggers to avoid concurrent over-allocation.
@@ -588,3 +588,12 @@ Created excel file (which can be exported as a raw csv file) containing student,
     2. partially blank rows (eg a blank topic cell) are not checked yet, only fully blank rows are dropped
     3. combined `load_curriculum.py` module to run subjects -> topics -> chapters in one transaction
 
+**robust cleaning + testing with pytest**
+made cleaning script more robust to handle edge cases and enforce final data shape and type
+- `clean_data`, `clean_text`, `full_name`, `split_subjects`, `to_money`, `to_date`, `to_hours`
+- created test cases with pytest
+  - `assert`, `@pytest.mark.parametrize`, `with pytest.raises()`
+- test-driven development (write tests before you write the code)
+- some functions had claude code do it
+- some tests and checks probably overkill so we'll move on
+- also adjusted some of the requirements to better fit use case
