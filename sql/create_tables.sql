@@ -25,7 +25,8 @@ CREATE TABLE students (
     full_name       VARCHAR(150) NOT NULL,
     school          VARCHAR(150),
     academic_level  VARCHAR(50)  NOT NULL,
-    curriculum      VARCHAR(100) NOT NULL
+    curriculum      VARCHAR(100) NOT NULL,
+    CONSTRAINT uq_students_full_name UNIQUE (full_name)
 );
 
 CREATE TABLE subjects (

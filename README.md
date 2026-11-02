@@ -597,3 +597,19 @@ made cleaning script more robust to handle edge cases and enforce final data sha
 - some functions had claude code do it
 - some tests and checks probably overkill so we'll move on
 - also adjusted some of the requirements to better fit use case
+
+**populating students and student subjects**
+same pattern as the other tables
+- using `apply()` to perform a row-wise operation on first name and last name to create full name
+- new `EXCLUDED` keyword in SQL
+  - used to **upsert**
+  - EXCLUDED is a temporary special table that holds the row we try to insert. so we can reference it to perform updates
+
+student_subjects table same as topics / chapters table
+- build a dictionary look up
+  - actually its possible to do without a dictionary and just perform a query with some WHERE conditions
+  - tradeoff is that you dont get details on insertion (new rows / skipped rows / why skipped)
+  - for now we will stick to building the dictionary but keep in mind the alternative of not doing that
+
+straightforward pattern we've seen before
+
